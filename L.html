@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<title>知識戰鬥 RPG - 傷害彈字與多題庫版</title>
+		<style>
+			:root {
+				--bg-main: #0d1117;
+				--bg-card: rgba(22, 33, 62, 0.85);
+				--primary: #e94560;
+				--primary-hover: #ff6b81;
+				--accent-gold: #f39c12;
+				--border-color: #0f3460;
+				--text-color: #ffffff;
+			}
+
+			* {
+				box-sizing: border-box;
+				user-select: none;
+				-webkit-user-select: none;
+			}
+
+			body {
+				margin: 0;
+				padding: 0;
+				background: var(--bg-main);
+				color: var(--text-color);
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				min-height: 100vh;
+				touch-action: manipulation;
+				overflow: hidden;
+			}
+
+			/* 頂部狀態列 (HUD) */
+			#hud {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 12px;
+				padding: 10px 20px;
+				background: #16213e;
+				width: 100%;
+				max-width: 720px;
+				justify-content: space-around;
+				font-size: 15px;
+				font-weight: 600;
+				border-radius: 12px 12px 0 0;
+				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+				border-bottom: 2px solid var(--border-color);
+			}
+
+			.hud-item {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.hud-item strong {
+				color: #4eacc5;
+			}
+
+			.hud-item strong#stones {
+				color: var(--accent-gold);
+			}
+
+			.hud-item strong#hp {
+				color: #2ecc71;
+			}
+
+			.hud-item strong#boss-hp {
+				color: #e74c3c;
+			}
+
+			/* 畫布 Canvas 容器 */
+			#canvas-wrapper {
+				position: relative;
+				width: 100%;
+				max-width: 720px;
+				display: flex;
+				justify-content: center;
+			}
+
+			canvas {
+				border: 3px solid var(--primary);
+				border-top: none;
+				border-radius: 0 0 16px 16px;
+				background: #1a2639;
+				width: 100%;
+				height: auto;
+				max-height: 55vh;
+				touch-action: none;
+				box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+			}
+
+			/* 彈窗 Screen & Modal */
+			#login-screen,
+			#quiz-modal {
+				position: fixed;
+				inset: 0;
+				background: rgba(10, 10, 20, 0.88);
+				backdrop-filter: blur(8px);
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				z-index: 100;
+				animation: fadeIn 0.3s ease-out;
+			}
+
+			@keyframes fadeIn {
+				from { opacity: 0; transform: scale(0.95); }
+				to { opacity: 1; transform: scale(1); }
+			}
+
+			.box {
+				background: var(--bg-card);
+				padding: 28px;
+				border-radius: 20px;
+				border: 2px solid var(--primary);
+				text-align: center;
+				max-width: 420px;
+				width: 88%;
+				box-shadow: 0 15px 35px rgba(233, 69, 96, 0.2);
+			}
+
+			.box h1 {
+				margin-top: 0;
+				color: var(--primary);
+				font-size: 26px;
+			}
+
+			select,
+			input,
+			button {
+				padding: 12px 16px;
+				margin: 8px 4px;
+				font-size: 16px;
+				border-radius: 10px;
+				border: 1px solid var(--border-color);
+				outline: none;
+			}
+
+			select, input {
+				background: #0f3460;
+				color: white;
+			}
+
+			button {
+				background: var(--primary);
+				color: white;
+				font-weight: bold;
+				border: none;
+				cursor: pointer;
+				transition: all 0.2s ease;
+			}
+
+			button:active {
+				transform: scale(0.95);
+				background: var(--primary-hover);
+			}
+
+			.option-btn {
+				display: block;
+				width: 100%;
+				margin: 10px 0;
+				text-align: left;
+				background: #0f3460;
+				border: 1.5px solid var(--border-color);
+				color: white;
+				transition: all 0.2s;
+			}
+
+			.option-btn:hover, .option-btn:active {
+				border-color: var(--primary);
+				background: #16213e;
+			}
+
+			/* iPad 虛擬控制器 D-Pad */
+			#dpad {
+				display: grid;
+				grid-template-columns: repeat(3, 64px);
+				grid-template-rows: repeat(2, 64px);
+				gap: 8px;
+				margin-top: 14px;
+			}
+
+			.dpad-btn {
+				background: rgba(255, 255, 255, 0.1);
+				border: 2px solid rgba(255, 255, 255, 0.25);
+				border-radius: 16px;
+				font-size: 26px;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				color: white;
+				padding: 0;
+				margin: 0;
+				touch-action: none;
+			}
+
+			.dpad-btn:active {
+				background: var(--primary);
+				border-color: white;
+				box-shadow: 0 0 15px rgba(233, 69, 96, 0.8);
+			}
+
+			.hidden {
+				display: none !important;
+			}
+
+			.tip {
+				font-size: 13px;
+				color: #8892b0;
+				margin-top: 8px;
+			}
+		</style>
+	</head>
+	<body>
+		<!-- 登入介面 -->
+		<div id="login-screen">
+			<div class="box">
+				<h1>⚔️ 知識戰鬥 RPG</h1>
+				<p>自由探索大陸，答題收集魔石！</p>
+				<select id="class-select">
+					<option value="6A">6A 班</option>
+					<option value="6B">6B 班</option>
+					<option value="6C">6C 班</option>
+					<option value="6D">6D 班</option>
+				</select>
+				<input type="number" id="student-id" placeholder="學號 (1-40)" min="1" max="40" style="width:120px;">
+				<br><br>
+				<button onclick="startGame()" style="width: 80%;">進入自由世界</button>
+			</div>
+		</div>
+
+		<!-- 頂部資訊欄 -->
+		<div id="hud">
+			<div class="hud-item">👤 <span id="player-info">冒險者</span></div>
+			<div class="hud-item">💎 魔石：<strong id="stones">0</strong></div>
+			<div class="hud-item">❤️ 生命：<strong id="hp">100</strong></div>
+			<div class="hud-item">👹 Boss HP：<strong id="boss-hp">1000</strong></div>
+		</div>
+
+		<!-- 遊戲地圖畫布 -->
+		<div id="canvas-wrapper">
+			<canvas id="world" width="600" height="400"></canvas>
+		</div>
+
+		<!-- iPad 觸控控制器 -->
+		<div id="dpad">
+			<div></div>
+			<button class="dpad-btn" id="btn-up">⬆️</button>
+			<div></div>
+			<button class="dpad-btn" id="btn-left">⬅️</button>
+			<button class="dpad-btn" id="btn-down">⬇️</button>
+			<button class="dpad-btn" id="btn-right">➡️</button>
+		</div>
+		<p class="tip">💡 提示：可以直接點擊地圖導航移動，或按住下方方向鍵控制。</p>
+
+		<!-- 答題視窗 -->
+		<div id="quiz-modal" class="hidden">
+			<div class="box">
+				<h2 id="battle-title">⚠️ 遭遇知識魔物！</h2>
+				<p id="question-text">題目載入中...</p>
+				<div id="options-container"></div>
+			</div>
+		</div>
+
+		<script>
+			const canvas = document.getElementById('world');
+			const ctx = canvas.getContext('2d');
+
+			// 遊戲狀態與角色參數
+			let player = { x: 60, y: 60, size: 24, speed: 4, stones: 0, hp: 100, targetX: null, targetY: null };
+			let boss = { x: 500, y: 310, size: 40, hp: 1000, maxHp: 1000 };
+			let enemies = [
+				{ x: 180, y: 100, size: 24, active: true },
+				{ x: 360, y: 180, size: 24, active: true },
+				{ x: 140, y: 280, size: 24, active: true }
+			];
+			let chests = [
+				{ x: 480, y: 60, size: 24, opened: false }
+			];
+
+			// 傷害彈字數組 (Damage Numbers Array)
+			let damageTexts = [];
+
+			// 擴充題庫
+			const questions = [
+				{ q: "香港特別行政區成立於哪一年？", options: ["1997年", "1984年", "2000年"], ans: 0 },
+				{ q: "中國四大發明中，哪一項對航海探索貢獻最大？", options: ["造紙術", "指南針", "活字印刷術"], ans: 1 },
+				{ q: "以下哪一個屬於可再生能源？", options: ["煤炭", "天然氣", "太陽能"], ans: 2 },
+				{ q: "人體最大的器官是什麼？", options: ["心臟", "皮膚", "肝臟"], ans: 1 },
+				{ q: "光速大約是多少？", options: ["每秒30萬公里", "每秒3萬公里", "每秒3000公里"], ans: 0 },
+				{ q: "成語「守株待兔」中的「株」是指什麼？", options: ["樹幹/樹樁", "小草", "小鹿"], ans: 0 },
+				{ q: "地球上面積最大的大洋是哪一個？", options: ["大西洋", "印度洋", "太平洋"], ans: 2 },
+				{ q: "直角三角形中，直角是多少度？", options: ["45度", "90度", "180度"], ans: 1 },
+				{ q: "植物進行光合作用主要吸收什麼氣體？", options: ["氧氣", "氮氣", "二氧化碳"], ans: 2 },
+				{ q: "香港最高山峰是哪一座？", options: ["鳳凰山", "大帽山", "獅子山"], ans: 1 }
+			];
+
+			let moveState = { up: false, down: false, left: false, right: false };
+			let isPaused = false;
+			let currentTarget = null;
+			let isInvincible = false;
+
+			// 新增傷害彈字特效函數
+			function addDamageText(text, x, y, color = "#ff4d4d") {
+				damageTexts.push({
+					text: text,
+					x: x,
+					y: y,
+					alpha: 1.0,
+					color: color
+				});
+			}
+
+			// 綁定觸控與按鍵事件
+			function bindTouch(id, dir) {
+				const btn = document.getElementById(id);
+				const start = (e) => {
+					e.preventDefault();
+					moveState[dir] = true;
+					player.targetX = null;
+					player.targetY = null;
+				};
+				const end = (e) => {
+					e.preventDefault();
+					moveState[dir] = false;
+				};
+
+				btn.addEventListener('touchstart', start, { passive: false });
+				btn.addEventListener('touchend', end);
+				btn.addEventListener('touchcancel', end);
+				btn.addEventListener('mousedown', start);
+				btn.addEventListener('mouseup', end);
+				btn.addEventListener('mouseleave', end);
+			}
+
+			bindTouch('btn-up', 'up');
+			bindTouch('btn-down', 'down');
+			bindTouch('btn-left', 'left');
+			bindTouch('btn-right', 'right');
+
+			// 鍵盤操控支援 (WASD + 方向鍵)
+			window.addEventListener('keydown', (e) => {
+				if (isPaused) return;
+				if (['ArrowUp', 'w', 'W'].includes(e.key)) moveState.up = true;
+				if (['ArrowDown', 's', 'S'].includes(e.key)) moveState.down = true;
+				if (['ArrowLeft', 'a', 'A'].includes(e.key)) moveState.left = true;
+				if (['ArrowRight', 'd', 'D'].includes(e.key)) moveState.right = true;
+				player.targetX = null; player.targetY = null;
+			});
+			window.addEventListener('keyup', (e) => {
+				if (['ArrowUp', 'w', 'W'].includes(e.key)) moveState.up = false;
+				if (['ArrowDown', 's', 'S'].includes(e.key)) moveState.down = false;
+				if (['ArrowLeft', 'a', 'A'].includes(e.key)) moveState.left = false;
+				if (['ArrowRight', 'd', 'D'].includes(e.key)) moveState.right = false;
+			});
+
+			// Canvas 點擊/觸控自動尋路導航
+			canvas.addEventListener('pointerdown', (e) => {
+				if (isPaused) return;
+				const rect = canvas.getBoundingClientRect();
+				const scaleX = canvas.width / rect.width;
+				const scaleY = canvas.height / rect.height;
+				player.targetX = (e.clientX - rect.left) * scaleX - player.size / 2;
+				player.targetY = (e.clientY - rect.top) * scaleY - player.size / 2;
+			});
+
+			function startGame() {
+				const cls = document.getElementById('class-select').value;
+				const id = document.getElementById('student-id').value || '1';
+				document.getElementById('player-info').innerText = `${cls} (${id}號)`;
+				document.getElementById('login-screen').classList.add('hidden');
+				gameLoop();
+			}
+
+			function triggerQuiz(target, isBoss = false) {
+				isPaused = true;
+				player.targetX = null;
+				player.targetY = null;
+				moveState = { up: false, down: false, left: false, right: false };
+				currentTarget = { obj: target, isBoss };
+
+				// 隨機抽題
+				const q = questions[Math.floor(Math.random() * questions.length)];
+				document.getElementById('battle-title').innerText = isBoss ? "🔥 WARNING! 挑戰 Boss！" : "👾 遭遇知識魔物！";
+				document.getElementById('question-text').innerText = q.q;
+
+				const container = document.getElementById('options-container');
+				container.innerHTML = '';
+				q.options.forEach((opt, idx) => {
+					const btn = document.createElement('button');
+					btn.className = 'option-btn';
+					btn.innerText = opt;
+					btn.onclick = () => resolveAnswer(idx === q.ans);
+					container.appendChild(btn);
+				});
+				document.getElementById('quiz-modal').classList.remove('hidden');
+			}
+
+			function resolveAnswer(isCorrect) {
+				document.getElementById('quiz-modal').classList.add('hidden');
+				if (isCorrect) {
+					if (currentTarget.isBoss) {
+						const dmg = 250 + player.stones * 10;
+						boss.hp = Math.max(0, boss.hp - dmg);
+						
+						// 觸發 Boss 扣血紅色數字特效
+						addDamageText(`-${dmg}`, boss.x + 10, boss.y - 10, "#ff4d4d");
+						
+						if (boss.hp === 0) alert("🏆 VICTORY！你已順利擊敗魔王，通關自由世界！");
+					} else {
+						player.stones += 10;
+						currentTarget.obj.active = false;
+						
+						// 擊敗怪物獲得獎勵綠字
+						addDamageText("+10 💎", player.x, player.y - 10, "#2ecc71");
+					}
+				} else {
+					player.hp = Math.max(0, player.hp - 25);
+					
+					// 玩家受到傷害紅色數字特效
+					addDamageText("-25 HP", player.x, player.y - 10, "#ff4d4d");
+					
+					if (player.hp === 0) {
+						alert("💀 戰敗！你已傳送回安全區恢復全滿狀態。");
+						player.hp = 100;
+						player.x = 60;
+						player.y = 60;
+					}
+				}
+
+				// 短暫無敵避開連環觸發
+				isInvincible = true;
+				setTimeout(() => { isInvincible = false; }, 1200);
+
+				updateHUD();
+				isPaused = false;
+			}
+
+			function updateHUD() {
+				document.getElementById('stones').innerText = player.stones;
+				document.getElementById('hp').innerText = player.hp;
+				document.getElementById('boss-hp').innerText = boss.hp;
+			}
+
+			function checkCollision(a, b) {
+				return a.x < b.x + b.size && a.x + a.size > b.x && a.y < b.y + b.size && a.y + a.size > b.y;
+			}
+
+			function update() {
+				if (isPaused) return;
+
+				// 方向鍵移動
+				if (moveState.up && player.y > 0) player.y -= player.speed;
+				if (moveState.down && player.y < canvas.height - player.size) player.y += player.speed;
+				if (moveState.left && player.x > 0) player.x -= player.speed;
+				if (moveState.right && player.x < canvas.width - player.size) player.x += player.speed;
+
+				// 自動尋路移動
+				if (player.targetX !== null && player.targetY !== null) {
+					const dx = player.targetX - player.x;
+					const dy = player.targetY - player.y;
+					const dist = Math.hypot(dx, dy);
+					if (dist > player.speed) {
+						player.x += (dx / dist) * player.speed;
+						player.y += (dy / dist) * player.speed;
+					} else {
+						player.targetX = null;
+						player.targetY = null;
+					}
+				}
+
+				// 更新傷害數字位置與透明度
+				for (let i = damageTexts.length - 1; i >= 0; i--) {
+					let dt = damageTexts[i];
+					dt.y -= 1;
+					dt.alpha -= 0.02;
+					if (dt.alpha <= 0) {
+						damageTexts.splice(i, 1);
+					}
+				}
+
+				if (isInvincible) return;
+
+				// 碰撞偵測
+				enemies.forEach(e => {
+					if (e.active && checkCollision(player, e)) triggerQuiz(e, false);
+				});
+
+				chests.forEach(c => {
+					if (!c.opened && checkCollision(player, c)) {
+						c.opened = true;
+						player.stones += 20;
+						addDamageText("+20 💎", player.x, player.y - 10, "#f39c12");
+						updateHUD();
+					}
+				});
+
+				if (boss.hp > 0 && checkCollision(player, boss)) triggerQuiz(boss, true);
+			}
+
+			function draw() {
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				// 背景網格線條
+				ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+				ctx.lineWidth = 1;
+				for (let i = 0; i < canvas.width; i += 30) {
+					ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+				}
+				for (let j = 0; j < canvas.height; j += 30) {
+					ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+				}
+
+				// 繪製寶箱
+				chests.forEach(c => {
+					ctx.font = "24px sans-serif";
+					ctx.fillText(c.opened ? "📭" : "📦", c.x, c.y + 20);
+				});
+
+				// 繪製小怪
+				enemies.forEach(e => {
+					if (e.active) {
+						ctx.font = "24px sans-serif";
+						ctx.fillText("👾", e.x, e.y + 20);
+					}
+				});
+
+				// 繪製 Boss 與血條
+				if (boss.hp > 0) {
+					ctx.font = "38px sans-serif";
+					ctx.fillText("👹", boss.x, boss.y + 34);
+
+					// Boss 小血條
+					ctx.fillStyle = "rgba(0,0,0,0.5)";
+					ctx.fillRect(boss.x - 5, boss.y - 12, 50, 6);
+					ctx.fillStyle = "#e74c3c";
+					ctx.fillRect(boss.x - 5, boss.y - 12, (boss.hp / boss.maxHp) * 50, 6);
+				}
+
+				// 繪製玩家 (無敵閃爍效果)
+				if (!isInvincible || Math.floor(Date.now() / 150) % 2 === 0) {
+					ctx.font = "24px sans-serif";
+					ctx.fillText("🧙", player.x, player.y + 20);
+				}
+
+				// 繪製傷害/獲得彈字特效
+				damageTexts.forEach(dt => {
+					ctx.save();
+					ctx.globalAlpha = dt.alpha;
+					ctx.font = "bold 20px Arial";
+					ctx.fillStyle = dt.color;
+					ctx.fillText(dt.text, dt.x, dt.y);
+					ctx.restore();
+				});
+			}
+
+			function gameLoop() {
+				update();
+				draw();
+				requestAnimationFrame(gameLoop);
+			}
+		</script>
+	</body>
+</html>
